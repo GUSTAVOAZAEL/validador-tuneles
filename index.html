@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Validador de túneles TP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#18212b; --muted:#5b6876; --line:#cfd6de;
+  --field:#f7f9fb; --ok:#1f8a70; --ok-bg:#e3f3ee; --bad:#b4560f; --bad-bg:#fbeedd;
+  --warn:#7a5bb0; --warn-bg:#efe9f8; --wire:#2c6fb3; --btn:#18212b; --btn-ink:#fff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b232d; --panel:#222c37; --ink:#e4eaf0; --muted:#93a1b0; --line:#34414f;
+    --field:#1b232d; --ok:#4cc39f; --ok-bg:#1d3631; --bad:#f0a256; --bad-bg:#3a2b1c;
+    --warn:#b79cf0; --warn-bg:#2d2840; --wire:#6fa8e0; --btn:#e4eaf0; --btn-ink:#1b232d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b232d; --panel:#222c37; --ink:#e4eaf0; --muted:#93a1b0; --line:#34414f;
+  --field:#1b232d; --ok:#4cc39f; --ok-bg:#1d3631; --bad:#f0a256; --bad-bg:#3a2b1c;
+  --warn:#b79cf0; --warn-bg:#2d2840; --wire:#6fa8e0; --btn:#e4eaf0; --btn-ink:#1b232d;
+  color-scheme: dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:24px 20px 60px}
+h1{font-size:1.5rem;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.lede{color:var(--muted);margin:0 0 18px;max-width:75ch}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.92em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.node{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.node label{display:flex;justify-content:space-between;gap:8px;font-weight:600;margin-bottom:6px}
+.node label small{color:var(--muted);font-weight:400}
+textarea,input,select{width:100%;font:13px/1.45 "IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:9px 10px}
+textarea{min-height:150px;resize:vertical}
+textarea:focus,input:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--wire);outline-offset:1px}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:14px 0 0}
+.bar .f{min-width:160px}
+.bar .f label{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
+button{font:600 14px "IBM Plex Sans",system-ui,sans-serif;border-radius:6px;padding:9px 14px;cursor:pointer;border:1px solid var(--btn);background:var(--btn);color:var(--btn-ink)}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+details.more{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+details.more summary{cursor:pointer;font-weight:600}
+details.more .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:10px}
+@media (max-width:760px){details.more .opts{grid-template-columns:1fr}}
+details.more label{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
+.status{margin:22px 0 10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.95rem}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.8rem;font-weight:600}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.cmdbox{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.cmdbox.done{border-left-color:var(--ok)}
+.cmdbox header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.cmdbox h2{font-size:1.05rem;margin:0}
+.scroll{overflow-x:auto}
+pre{margin:0;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:12px;font:13px/1.55 "IBM Plex Mono",ui-monospace,monospace;white-space:pre}
+.tun{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.tun.bad{border-left:4px solid var(--bad)} .tun.warn{border-left:4px solid var(--warn)}
+.tun h3{margin:0 0 8px;font:600 14px "IBM Plex Mono",ui-monospace,monospace;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wires{display:grid;grid-template-columns:minmax(80px,1fr) 2.2fr minmax(80px,1fr);gap:4px 10px;align-items:center;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px}
+.wires .end{font-weight:600} .wires .end.r{text-align:right}
+.wire{display:flex;align-items:center;gap:8px}
+.wire .lab{padding:1px 6px;border-radius:4px;background:var(--field);border:1px solid var(--line);white-space:nowrap}
+.wire .ln{flex:1;height:2px;background:var(--wire);position:relative;min-width:24px}
+.wire.fw .ln::after,.wire.rv .ln::before{content:"";position:absolute;top:-4px;border:5px solid transparent}
+.wire.fw .ln::after{right:-2px;border-left-color:var(--wire);border-right:0}
+.wire.rv .ln::before{left:-2px;border-right-color:var(--wire);border-left:0}
+.wire.mis .ln{background:var(--bad)} .wire.mis.fw .ln::after{border-left-color:var(--bad)} .wire.mis.rv .ln::before{border-right-color:var(--bad)}
+.wire.mis .lab{border-color:var(--bad);color:var(--bad);font-weight:600}
+.note{color:var(--muted);font-size:.88rem;margin:6px 0 0}
+.note.warn{color:var(--warn)}
+details.sec{margin-top:14px}
+details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
+.list{font:13px/1.6 "IBM Plex Mono",ui-monospace,monospace;color:var(--muted);word-break:break-all}
+.empty{color:var(--muted);padding:14px;border:1px dashed var(--line);border-radius:10px;margin-top:20px}
+.manual{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:10px}
+.manual .f{width:150px}
+.manual label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:3px}
+.manual input{padding:6px 8px}
+.manual input.set{border-color:var(--wire);font-weight:600}
+.pill.man{background:var(--field);color:var(--wire);border:1px solid var(--wire)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Validador de túneles TP después de un bypass</h1>
+  <p class="lede">En cada nodo corre <code>conf search string tp-tunnel</code> y pega toda la salida. Se valida solo al pegar y arriba quedan los comandos listos para copiar por nodo.</p>
+
+  <div class="grid">
+    <div class="node">
+      <label for="cfgA">Nodo a corregir <small id="nameA"></small></label>
+      <textarea id="cfgA" spellcheck="false" placeholder="NODO-A> conf search string tp-tunnel"></textarea>
+    </div>
+    <div class="node">
+      <label for="cfgB">Nodo vecino del bypass <small id="nameB"></small></label>
+      <textarea id="cfgB" spellcheck="false" placeholder="NODO-B> conf search string tp-tunnel"></textarea>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button id="swap" type="button" class="ghost">Intercambiar nodos</button>
+    <button id="demo" type="button" class="ghost">Cargar ejemplo</button>
+    <button id="clear" type="button" class="ghost">Limpiar</button>
+  </div>
+
+  <details class="more">
+    <summary>Opciones extra</summary>
+    <div class="opts">
+      <div><label for="ipOld">IP que se quitó</label><input id="ipOld" placeholder="192.0.2.5"></div>
+      <div><label for="ipA">IP del nodo a corregir en el enlace</label><input id="ipA" placeholder="se detecta sola"></div>
+      <div><label for="ipB">IP del vecino en el enlace</label><input id="ipB" placeholder="se detecta sola"></div>
+    </div>
+    <label for="inv" style="margin-top:10px">Otras etiquetas de entrada en uso en el nodo a corregir (por ejemplo, salida de <code>conf search string in-label</code>)</label>
+    <textarea id="inv" spellcheck="false" style="min-height:80px"></textarea>
+  </details>
+
+  <div id="out"></div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const KEYS = ["dest-ip","src-ip","next-hop-ip","prev-hop-ip","forward-out-label","forward-in-label","reverse-out-label","reverse-in-label"];
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const isIn = k => /-in-label$/.test(k);
+  const overrides = {};      // { tunel: { fw: "10500", rv: "10501" } }
+  const openState = { det:false, warn:false, old:true };
+
+  function nodeName(text){ const m = text.match(/^\s*([A-Za-z0-9_.\-]+)\*?\s*[>#]/m); return m ? m[1] : null; }
+  function parse(text){
+    const map = new Map();
+    text.split(/\r?\n/).forEach(raw => {
+      const i = raw.indexOf("gmpls tp-tunnel create"); if (i < 0) return;
+      const line = raw.slice(i).trim();
+      const h = line.match(/^gmpls tp-tunnel create\s+(\S+)\s+(\S+)/); if (!h) return;
+      const t = {type:h[1], name:h[2], line, p:{}};
+      KEYS.forEach(k => { const m = line.match(new RegExp("(?:^|\\s)" + k + "\\s+(\\S+)")); if (m) t.p[k] = m[1]; });
+      map.set(t.name, t);
+    });
+    return map;
+  }
+  function inUseOf(text){
+    const m = new Map();
+    parse(text).forEach(t => ["forward-in-label","reverse-in-label"].forEach(k => { if (t.p[k]) m.set(t.p[k], {name:t.name, key:k}); }));
+    text.split(/\r?\n/).forEach(l => {
+      if (l.includes("tp-tunnel create")) return;
+      for (const x of l.matchAll(/(?:^|\s)[\w-]*in-label\s+(\d+)/g)) if (!m.has(x[1])) m.set(x[1], {name:l.trim().slice(0,70), key:"in-label"});
+    });
+    return m;
+  }
+  const freeIn = (m, s) => { let n=parseInt(s,10)+1; while (m.has(String(n))) n++; return String(n); };
+  const taken = (m, v, name, key) => { const h = m.get(v); return h && !(h.name===name && h.key===key) ? h : null; };
+  const ipNum = ip => { const p = (ip||"").split(".").map(Number); return p.length===4 && p.every(n=>n>=0&&n<=255) ? ((p[0]<<24)>>>0)+(p[1]<<16)+(p[2]<<8)+p[3] : null; };
+  const sameLink = (x,y) => { const a=ipNum(x), b=ipNum(y); return a!==null && b!==null && a!==b && Math.floor(a/4)===Math.floor(b/4); };
+  function direction(a, b, ipA, ipB){
+    const an=a.p["next-hop-ip"], ap=a.p["prev-hop-ip"], bn=b.p["next-hop-ip"], bp=b.p["prev-hop-ip"];
+    if (ipA && ipB){
+      if (an===ipB && bp===ipA) return "AB";
+      if (ap===ipB && bn===ipA) return "BA";
+      return null;
+    }
+    if (sameLink(an,bp)) return "AB";
+    if (sameLink(ap,bn)) return "BA";
+    return null;
+  }
+  const setLabel = (line,key,val) => line.replace(new RegExp("((?:^|\\s)" + key + "\\s+)\\S+"), "$1" + val);
+  function wireRow(dir, outLbl, inLbl, mis){
+    const l = dir==="fw" ? outLbl : inLbl, r = dir==="fw" ? inLbl : outLbl;
+    return `<div class="wire ${dir}${mis?" mis":""}"><span class="lab">${esc(l??"—")}</span><span class="ln"></span><span class="lab">${esc(r??"—")}</span></div>`;
+  }
+  const clean = arr => arr.join("\n").split("\n").filter(l => !l.startsWith("!")).join("\n");
+
+  function run(){
+    const tA = $("cfgA").value, tB = $("cfgB").value, out = $("out");
+    const nA = nodeName(tA) || "Nodo A", nB = nodeName(tB) || "Nodo B";
+    $("nameA").textContent = nodeName(tA) || ""; $("nameB").textContent = nodeName(tB) || "";
+    const ipA=$("ipA").value.trim(), ipB=$("ipB").value.trim(), ipOld=$("ipOld").value.trim(), invText=$("inv").value;
+    const A = parse(tA), B = parse(tB);
+    if (!A.size || !B.size){ out.innerHTML = (tA||tB) ? `<p class="empty">Falta pegar la salida del ${A.size?"nodo vecino":"nodo a corregir"}.</p>` : ""; return; }
+
+    const inUseA = inUseOf(invText + "\n" + tA), inUseB = inUseOf(tB);
+    let ok=0, dupCount=0, manCount=0, shared=0;
+    const badCards=[], warnCards=[], cmdA=[], cmdB=[], oldHits=[];
+    if (ipOld) A.forEach(t => { if (t.p["next-hop-ip"]===ipOld || t.p["prev-hop-ip"]===ipOld) oldHits.push(t.name); });
+
+    A.forEach((a, name) => {
+      const b = B.get(name); if (!b) return;
+      shared++;
+      const d = direction(a, b, ipA, ipB);
+      if (!d){
+        warnCards.push(`<div class="tun warn"><h3>${esc(name)} <span class="pill warn">no pasa por el bypass</span></h3><p class="note">${esc(nA)}: next ${esc(a.p["next-hop-ip"]||"—")} / prev ${esc(a.p["prev-hop-ip"]||"—")} · ${esc(nB)}: next ${esc(b.p["next-hop-ip"]||"—")} / prev ${esc(b.p["prev-hop-ip"]||"—")}</p></div>`);
+        return;
+      }
+      const aUp = d==="AB", up = aUp?a:b, dn = aUp?b:a, upN = aUp?nA:nB, dnN = aUp?nB:nA;
+      const fOut=up.p["forward-out-label"], fIn=dn.p["forward-in-label"], rOut=dn.p["reverse-out-label"], rIn=up.p["reverse-in-label"];
+      const fwBad = fOut!==undefined && fIn!==undefined && fOut!==fIn;
+      const rvBad = rOut!==undefined && rIn!==undefined && rOut!==rIn;
+      const ov = overrides[name] || {};
+      if (!fwBad && !rvBad && !ov.fw && !ov.rv){ ok++; return; }
+
+      const pairs = [
+        {id:"fw", txt:"Forward", bad:fwBad, aKey: aUp?"forward-out-label":"forward-in-label", bKey: aUp?"forward-in-label":"forward-out-label"},
+        {id:"rv", txt:"Reverse", bad:rvBad, aKey: aUp?"reverse-in-label":"reverse-out-label", bKey: aUp?"reverse-out-label":"reverse-in-label"}
+      ];
+      let line=a.line, oline=b.line; const ch=[], och=[]; let notes=""; const finals={};
+      pairs.forEach(p => {
+        const aCur=a.p[p.aKey], bCur=b.p[p.bKey];
+        if (aCur===undefined || bCur===undefined){ finals[p.id]=null; return; }
+        let auto = p.bad ? bCur : aCur;
+        if (p.bad && isIn(p.aKey)){
+          const h = taken(inUseA, bCur, name, p.aKey);
+          if (h){ auto = freeIn(inUseA, bCur); dupCount++; notes += `<p class="note warn">${p.txt}: ${esc(bCur)} ya la usa ${esc(h.name)} en ${esc(nA)}. Se propone ${esc(auto)} en ambos nodos.</p>`; }
+        }
+        const v = ov[p.id] || auto;
+        if (ov[p.id]){
+          if (isIn(p.aKey)){ const h = taken(inUseA, v, name, p.aKey); if (h) notes += `<p class="note warn">Ojo: ${esc(v)} ya la usa ${esc(h.name)} en ${esc(nA)} y el equipo la va a rechazar.</p>`; }
+          if (isIn(p.bKey)){ const h = taken(inUseB, v, name, p.bKey); if (h) notes += `<p class="note warn">Ojo: ${esc(v)} ya la usa ${esc(h.name)} en ${esc(nB)} y el equipo la va a rechazar.</p>`; }
+        }
+        if (isIn(p.aKey)) inUseA.set(v, {name, key:p.aKey});
+        if (isIn(p.bKey)) inUseB.set(v, {name, key:p.bKey});
+        finals[p.id] = {v, auto};
+        if (v!==aCur){ line=setLabel(line,p.aKey,v); ch.push(`${p.aKey} ${aCur} → ${v}`); }
+        if (v!==bCur){ oline=setLabel(oline,p.bKey,v); och.push(`${p.bKey} ${bCur} → ${v}`); }
+      });
+      const manual = !!(ov.fw || ov.rv); if (manual) manCount++;
+      if (ch.length) cmdA.push(`! ${name}: ${ch.join(", ")}\ngmpls tp-tunnel delete ${a.type} ${name}\n${line}`);
+      if (och.length) cmdB.push(`! ${name}: ${och.join(", ")}\ngmpls tp-tunnel delete ${b.type} ${name}\n${oline}`);
+
+      const inp = id => finals[id] ? `<div class="f"><label for="m-${id}-${esc(name)}">${id==="fw"?"Forward":"Reverse"} manual</label><input id="m-${id}-${esc(name)}" class="${ov[id]?"set":""}" inputmode="numeric" data-tun="${esc(name)}" data-pair="${id}" value="${esc(ov[id]||"")}" placeholder="${esc(finals[id].auto)}"></div>` : "";
+      badCards.push(`<div class="tun bad"><h3>${esc(name)}${manual?' <span class="pill man">manual</span>':""}${notes.includes("ya la usa")&&!manual?' <span class="pill warn">etiqueta ocupada</span>':""}</h3>
+        <div class="scroll"><div class="wires">
+          <div class="end">${esc(upN)}</div>${wireRow("fw",fOut,fIn,fwBad)}<div class="end r">${esc(dnN)}</div>
+          <div class="end">${esc(upN)}</div>${wireRow("rv",rOut,rIn,rvBad)}<div class="end r">${esc(dnN)}</div>
+        </div></div>${notes}
+        <div class="manual">${inp("fw")}${inp("rv")}${manual?`<button type="button" class="ghost" data-reset="${esc(name)}">Quitar manual</button>`:""}</div>
+      </div>`);
+    });
+
+    const bad = badCards.length;
+    const box = (node, cmds, id) => cmds.length ? `<div class="cmdbox"><header><h2>Aplicar en ${esc(node)} · ${cmds.length} túnel${cmds.length>1?"es":""}</h2><button type="button" data-copy="${id}">Copiar comandos</button></header><div class="scroll"><pre>${esc(cmds.join("\n\n"))}</pre></div></div>` : "";
+    out.innerHTML = `
+      <div class="status">
+        <span class="pill ${bad?"bad":"ok"}">${bad} por corregir</span>
+        <span class="pill ok">${ok} correctos</span>
+        ${manCount?`<span class="pill man">${manCount} con etiqueta manual</span>`:""}
+        ${dupCount?`<span class="pill warn">${dupCount} con etiqueta ocupada</span>`:""}
+        ${warnCards.length?`<span class="pill warn">${warnCards.length} no pasan por el bypass</span>`:""}
+        ${oldHits.length?`<span class="pill warn">${oldHits.length} aún con la IP quitada</span>`:""}
+      </div>
+      ${shared ? "" : `<p class="empty">No hay túneles con el mismo nombre en ${esc(nA)} y ${esc(nB)}.</p>`}
+      ${shared && !bad ? `<div class="cmdbox done"><header><h2>Todo coincide, no hay nada que aplicar</h2></header></div>` : ""}
+      ${box(nA, cmdA, "A")}${box(nB, cmdB, "B")}
+      ${oldHits.length?`<details class="sec" data-k="old"${openState.old?" open":""}><summary>Todavía apuntan a ${esc(ipOld)} en ${esc(nA)}</summary><div class="list">${oldHits.map(esc).join("<br>")}</div></details>`:""}
+      ${bad?`<details class="sec" data-k="det"${openState.det?" open":""}><summary>Detalle y etiqueta manual (${bad})</summary><p class="note" style="margin:0 0 10px">Si el equipo rechazó algún túnel, escribe la etiqueta que quieras en Forward o Reverse y presiona Enter. Se ajustan los comandos de ambos nodos para que sigan coincidiendo.</p>${badCards.join("")}</details>`:""}
+      ${warnCards.length?`<details class="sec" data-k="warn"${openState.warn?" open":""}><summary>Túneles en ambos nodos que no pasan por el bypass (${warnCards.length})</summary>${warnCards.join("")}</details>`:""}`;
+
+    out.querySelectorAll("details[data-k]").forEach(d => d.addEventListener("toggle", () => { openState[d.dataset.k] = d.open; }));
+    out.querySelectorAll("[data-copy]").forEach(btn => btn.onclick = () => {
+      const txt = clean(btn.dataset.copy==="A" ? cmdA : cmdB).replace(/\n{2,}/g,"\n");
+      const done = () => { btn.textContent="Copiados"; setTimeout(()=>btn.textContent="Copiar comandos",1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, ()=>fallback(txt,done)); else fallback(txt,done);
+    });
+    out.querySelectorAll("input[data-tun]").forEach(inp => inp.addEventListener("change", () => {
+      const n = inp.dataset.tun, v = inp.value.trim();
+      if (v && !/^\d+$/.test(v)){ inp.setCustomValidity("Solo números"); inp.reportValidity(); return; }
+      overrides[n] = overrides[n] || {};
+      if (v) overrides[n][inp.dataset.pair] = v; else delete overrides[n][inp.dataset.pair];
+      run();
+      const again = document.getElementById(inp.id); if (again) again.focus();
+    }));
+    out.querySelectorAll("[data-reset]").forEach(btn => btn.onclick = () => { delete overrides[btn.dataset.reset]; run(); });
+  }
+  function fallback(txt, done){ const t=document.createElement("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{document.execCommand("copy"); done();}catch(e){} t.remove(); }
+
+  let timer; const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 150); };
+  ["cfgA","cfgB","inv","ipA","ipB","ipOld"].forEach(id => $(id).addEventListener("input", schedule));
+  $("swap").onclick = () => { const x=$("cfgA").value; $("cfgA").value=$("cfgB").value; $("cfgB").value=x; const y=$("ipA").value; $("ipA").value=$("ipB").value; $("ipB").value=y; for (const k in overrides) delete overrides[k]; run(); };
+  $("clear").onclick = () => { ["cfgA","cfgB","inv","ipA","ipB","ipOld"].forEach(id => $(id).value=""); for (const k in overrides) delete overrides[k]; run(); $("cfgA").focus(); };
+  $("demo").onclick = () => {
+    $("cfgA").value = "NODO-A> conf search string tp-tunnel\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-001 dest-ip 198.51.100.54 src-ip 198.51.100.3 next-hop-ip 192.0.2.1 prev-hop-ip 192.0.2.9 forward-out-label 10150 forward-in-label 10131 reverse-out-label 10132 reverse-in-label 10145 ais-monitor enable\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-002 dest-ip 198.51.100.10 src-ip 198.51.100.9 next-hop-ip 192.0.2.10 prev-hop-ip 192.0.2.5 forward-out-label 10200 forward-in-label 10102 reverse-out-label 10201 reverse-in-label 10202 ais-monitor enable\nNODO-A>";
+    $("cfgB").value = "NODO-B> conf search string tp-tunnel\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-001 dest-ip 198.51.100.54 src-ip 198.51.100.3 next-hop-ip 192.0.2.13 prev-hop-ip 192.0.2.2 forward-out-label 10408 forward-in-label 10103 reverse-out-label 10102 reverse-in-label 10407 ais-monitor enable\nNODO-B>";
+    $("ipOld").value = "192.0.2.5"; for (const k in overrides) delete overrides[k]; run();
+  };
+})();
+</script>
+</body>
+</html>
