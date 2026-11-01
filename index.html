@@ -173,6 +173,29 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
     return null;
   }
   const setLabel = (line,key,val) => line.replace(new RegExp("((?:^|\\s)" + key + "\\s+)\\S+"), "$1" + val);
+  // IP del otro extremo en una /30 (.1 <-> .2)
+  const partner = ip => { const n = ipNum(ip); if (n===null) return null; const o = n % 4; if (o!==1 && o!==2) return null; const m = o===1 ? n+1 : n-1; return [m>>>24, (m>>>16)&255, (m>>>8)&255, m&255].join("."); };
+  const cloneT = t => ({...t, p:{...t.p}});
+  // Si un nodo todavía tiene la IP quitada como next/prev hop, la reemplaza por la IP del otro extremo
+  // del enlace, calculada a partir del hop del vecino que sí apunta al enlace nuevo.
+  function repairHop(a0, b0, ipOld){
+    const cases = [
+      {who:"a", key:"next-hop-ip", ref:["b","prev-hop-ip"], d:"AB"},
+      {who:"a", key:"prev-hop-ip", ref:["b","next-hop-ip"], d:"BA"},
+      {who:"b", key:"next-hop-ip", ref:["a","prev-hop-ip"], d:"BA"},
+      {who:"b", key:"prev-hop-ip", ref:["a","next-hop-ip"], d:"AB"}
+    ];
+    for (const c of cases){
+      const t = {a:a0, b:b0};
+      if (t[c.who].p[c.key] !== ipOld) continue;
+      const nu = partner(t[c.ref[0]].p[c.ref[1]]); if (!nu) continue;
+      const a = cloneT(a0), b = cloneT(b0), x = c.who==="a" ? a : b;
+      x.p[c.key] = nu; x.line = setLabel(x.line, c.key, nu);
+      const fix = [`${c.key} ${ipOld} → ${nu}`];
+      return {a, b, d:c.d, fixA: c.who==="a" ? fix : [], fixB: c.who==="b" ? fix : []};
+    }
+    return null;
+  }
   function wireRow(dir, outLbl, inLbl, mis){
     const l = dir==="fw" ? outLbl : inLbl, r = dir==="fw" ? inLbl : outLbl;
     return `<div class="wire ${dir}${mis?" mis":""}"><span class="lab">${esc(l??"—")}</span><span class="ln"></span><span class="lab">${esc(r??"—")}</span></div>`;
@@ -188,16 +211,23 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
     if (!A.size || !B.size){ out.innerHTML = (tA||tB) ? `<p class="empty">Falta pegar la salida del ${A.size?"nodo vecino":"nodo a corregir"}.</p>` : ""; return; }
 
     const inUseA = inUseOf(invText + "\n" + tA), inUseB = inUseOf(tB);
-    let ok=0, dupCount=0, manCount=0, shared=0;
+    let ok=0, dupCount=0, manCount=0, shared=0, ipFixCount=0;
     const badCards=[], warnCards=[], cmdA=[], cmdB=[], oldHits=[];
-    if (ipOld) A.forEach(t => { if (t.p["next-hop-ip"]===ipOld || t.p["prev-hop-ip"]===ipOld) oldHits.push(t.name); });
+    const fixedOld = new Set();
+    const hitsOf = (M, n) => { if (ipOld) M.forEach(t => { if (t.p["next-hop-ip"]===ipOld || t.p["prev-hop-ip"]===ipOld) oldHits.push({tun:t.name, node:n}); }); };
+    hitsOf(A, nA); hitsOf(B, nB);
 
-    A.forEach((a, name) => {
-      const b = B.get(name); if (!b) return;
+    A.forEach((a0, name) => {
+      const b0 = B.get(name); if (!b0) return;
       shared++;
-      const d = direction(a, b, ipA, ipB);
+      let a = a0, b = b0, fixA = [], fixB = [];
+      let d = direction(a, b, ipA, ipB);
+      if (!d && ipOld){
+        const r = repairHop(a0, b0, ipOld);
+        if (r){ ({a, b, d, fixA, fixB} = r); ipFixCount++; fixedOld.add(name); }
+      }
       if (!d){
-        warnCards.push(`<div class="tun warn"><h3>${esc(name)} <span class="pill warn">no pasa por el bypass</span></h3><p class="note">${esc(nA)}: next ${esc(a.p["next-hop-ip"]||"—")} / prev ${esc(a.p["prev-hop-ip"]||"—")} · ${esc(nB)}: next ${esc(b.p["next-hop-ip"]||"—")} / prev ${esc(b.p["prev-hop-ip"]||"—")}</p></div>`);
+        warnCards.push(`<div class="tun warn"><h3>${esc(name)} <span class="pill warn">no pasa por el bypass</span></h3><p class="note">${esc(nA)}: next ${esc(a.p["next-hop-ip"]||"—")} / prev ${esc(a.p["prev-hop-ip"]||"—")} · ${esc(nB)}: next ${esc(b.p["next-hop-ip"]||"—")} / prev ${esc(b.p["prev-hop-ip"]||"—")}</p>${ipOld?"":`<p class="note">Si uno de los nodos todavía apunta a la IP vieja, escríbela en Opciones extra → IP que se quitó y se corrige sola.</p>`}</div>`);
         return;
       }
       const aUp = d==="AB", up = aUp?a:b, dn = aUp?b:a, upN = aUp?nA:nB, dnN = aUp?nB:nA;
@@ -205,13 +235,15 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
       const fwBad = fOut!==undefined && fIn!==undefined && fOut!==fIn;
       const rvBad = rOut!==undefined && rIn!==undefined && rOut!==rIn;
       const ov = overrides[name] || {};
-      if (!fwBad && !rvBad && !ov.fw && !ov.rv){ ok++; return; }
+      const ipFixed = fixA.length || fixB.length;
+      if (!fwBad && !rvBad && !ov.fw && !ov.rv && !ipFixed){ ok++; return; }
 
       const pairs = [
         {id:"fw", txt:"Forward", bad:fwBad, aKey: aUp?"forward-out-label":"forward-in-label", bKey: aUp?"forward-in-label":"forward-out-label"},
         {id:"rv", txt:"Reverse", bad:rvBad, aKey: aUp?"reverse-in-label":"reverse-out-label", bKey: aUp?"reverse-out-label":"reverse-in-label"}
       ];
-      let line=a.line, oline=b.line; const ch=[], och=[]; let notes=""; const finals={};
+      let line=a.line, oline=b.line; const ch=[...fixA], och=[...fixB]; let notes=""; const finals={};
+      if (ipFixed) notes += `<p class="note">IP corregida en ${esc(fixA.length?nA:nB)}: ${esc((fixA[0]||fixB[0]))} (otro extremo de la /30 que ya usa ${esc(fixA.length?nB:nA)}).</p>`;
       pairs.forEach(p => {
         const aCur=a.p[p.aKey], bCur=b.p[p.bKey];
         if (aCur===undefined || bCur===undefined){ finals[p.id]=null; return; }
@@ -236,7 +268,7 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
       if (och.length) cmdB.push(`! ${name}: ${och.join(", ")}\ngmpls tp-tunnel delete ${b.type} ${name}\n${oline}`);
 
       const inp = id => finals[id] ? `<div class="f"><label for="m-${id}-${esc(name)}">${id==="fw"?"Forward":"Reverse"} manual</label><input id="m-${id}-${esc(name)}" class="${ov[id]?"set":""}" inputmode="numeric" data-tun="${esc(name)}" data-pair="${id}" value="${esc(ov[id]||"")}" placeholder="${esc(finals[id].auto)}"></div>` : "";
-      badCards.push(`<div class="tun bad"><h3>${esc(name)}${manual?' <span class="pill man">manual</span>':""}${notes.includes("ya la usa")&&!manual?' <span class="pill warn">etiqueta ocupada</span>':""}</h3>
+      badCards.push(`<div class="tun bad"><h3>${esc(name)}${ipFixed?' <span class="pill warn">IP corregida</span>':""}${manual?' <span class="pill man">manual</span>':""}${notes.includes("ya la usa")&&!manual?' <span class="pill warn">etiqueta ocupada</span>':""}</h3>
         <div class="scroll"><div class="wires">
           <div class="end">${esc(upN)}</div>${wireRow("fw",fOut,fIn,fwBad)}<div class="end r">${esc(dnN)}</div>
           <div class="end">${esc(upN)}</div>${wireRow("rv",rOut,rIn,rvBad)}<div class="end r">${esc(dnN)}</div>
@@ -246,6 +278,7 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
     });
 
     const bad = badCards.length;
+    const pending = oldHits.filter(h => !fixedOld.has(h.tun));
     const box = (node, cmds, id) => cmds.length ? `<div class="cmdbox"><header><h2>Aplicar en ${esc(node)} · ${cmds.length} túnel${cmds.length>1?"es":""}</h2><button type="button" data-copy="${id}">Copiar comandos</button></header><div class="scroll"><pre>${esc(cmds.join("\n\n"))}</pre></div></div>` : "";
     out.innerHTML = `
       <div class="status">
@@ -254,12 +287,13 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
         ${manCount?`<span class="pill man">${manCount} con etiqueta manual</span>`:""}
         ${dupCount?`<span class="pill warn">${dupCount} con etiqueta ocupada</span>`:""}
         ${warnCards.length?`<span class="pill warn">${warnCards.length} no pasan por el bypass</span>`:""}
-        ${oldHits.length?`<span class="pill warn">${oldHits.length} aún con la IP quitada</span>`:""}
+        ${ipFixCount?`<span class="pill warn">${ipFixCount} con IP corregida</span>`:""}
+        ${pending.length?`<span class="pill warn">${pending.length} aún con la IP quitada</span>`:""}
       </div>
       ${shared ? "" : `<p class="empty">No hay túneles con el mismo nombre en ${esc(nA)} y ${esc(nB)}.</p>`}
       ${shared && !bad ? `<div class="cmdbox done"><header><h2>Todo coincide, no hay nada que aplicar</h2></header></div>` : ""}
       ${box(nA, cmdA, "A")}${box(nB, cmdB, "B")}
-      ${oldHits.length?`<details class="sec" data-k="old"${openState.old?" open":""}><summary>Todavía apuntan a ${esc(ipOld)} en ${esc(nA)}</summary><div class="list">${oldHits.map(esc).join("<br>")}</div></details>`:""}
+      ${pending.length?`<details class="sec" data-k="old"${openState.old?" open":""}><summary>Todavía apuntan a ${esc(ipOld)} y no se pudieron corregir solos</summary><div class="list">${pending.map(h => esc(h.node + ": " + h.tun)).join("<br>")}</div></details>`:""}
       ${bad?`<details class="sec" data-k="det"${openState.det?" open":""}><summary>Detalle y etiqueta manual (${bad})</summary><p class="note" style="margin:0 0 10px">Si el equipo rechazó algún túnel, escribe la etiqueta que quieras en Forward o Reverse y presiona Enter. Se ajustan los comandos de ambos nodos para que sigan coincidiendo.</p>${badCards.join("")}</details>`:""}
       ${warnCards.length?`<details class="sec" data-k="warn"${openState.warn?" open":""}><summary>Túneles en ambos nodos que no pasan por el bypass (${warnCards.length})</summary>${warnCards.join("")}</details>`:""}`;
 

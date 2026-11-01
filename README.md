@@ -20,7 +20,7 @@ Todo corre en el navegador: no hay servidor ni se envía ningún dato. Solo las 
 
 ### Opciones extra
 
-- **IP que se quitó**: lista los túneles del nodo a corregir que todavía tienen esa IP como `next-hop-ip` o `prev-hop-ip`.
+- **IP que se quitó**: si un túnel de cualquiera de los dos nodos todavía tiene esa IP como `next-hop-ip` o `prev-hop-ip`, se reemplaza sola por la IP correcta (ver *Corrección de IP* abajo). Los que no se pueden corregir solos se listan aparte.
 - **IP del nodo a corregir / IP del vecino en el enlace**: si se llenan las dos, la dirección del túnel se decide por coincidencia exacta de IPs en lugar de detectarla sola.
 - **Otras etiquetas de entrada en uso**: pega aquí, por ejemplo, la salida de `conf search string in-label` para que la revisión de etiquetas ocupadas tome en cuenta servicios que no son tp-tunnel.
 
@@ -39,6 +39,16 @@ Sin IPs manuales, se considera que dos IPs están en el mismo enlace si caen en 
 - Si `next-hop-ip` del nodo A y `prev-hop-ip` del nodo B están en el mismo enlace → **A es upstream** (A → B).
 - Si `prev-hop-ip` de A y `next-hop-ip` de B están en el mismo enlace → **B es upstream** (B → A).
 - Si no se cumple ninguna → el túnel **no pasa por el bypass** y solo se muestra como aviso.
+
+### 1b. Corrección de IP (hop que todavía apunta a la IP quitada)
+
+Solo se aplica si se llenó **IP que se quitó** y el túnel no pasó la regla 1.
+
+- Si un nodo tiene la IP quitada como `next-hop-ip`, su nuevo `next-hop-ip` es **el otro extremo de la /30** del `prev-hop-ip` del vecino (en una /30, `.1` ↔ `.2`).
+- Si la tiene como `prev-hop-ip`, su nuevo `prev-hop-ip` es el otro extremo de la /30 del `next-hop-ip` del vecino.
+- Funciona sin importar en qué lado está el nodo con la IP vieja. El cambio se incluye en el mismo `delete` + `create`, y después se revisan las etiquetas normalmente.
+
+Ejemplo: el nodo A tiene `prev-hop-ip 192.0.2.6` y el nodo B todavía tiene `next-hop-ip 192.0.2.81` (la IP quitada). El otro extremo de `.6` es `.5`, así que B queda con `next-hop-ip 192.0.2.5`.
 
 ### 2. Coincidencia de etiquetas
 
