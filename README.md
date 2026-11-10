@@ -18,10 +18,15 @@ Todo corre en el navegador: no hay servidor ni se envía ningún dato. Solo las 
 3. Se valida sola al pegar. Arriba aparecen los bloques **Aplicar en <nodo>** con el botón **Copiar comandos** (copia sin las líneas de comentario `!`).
 4. Si quieres invertir los papeles, usa **Intercambiar nodos**.
 
+### Diagrama del bypass (arriba)
+
+Muestra el **Nodo A** (a corregir), el **nodo que se quitó** y el **Nodo B** (vecino), con el nombre de cada nodo tomado de la salida pegada. Todas las IPs son opcionales y **con un extremo de cada enlace basta**: el otro se calcula en la /30 (`.1` ↔ `.2`) y aparece en gris en el campo vacío.
+
+- **Enlace que se quitó**: *IP de A (enlace viejo)* o *IP del nodo quitado*. La IP del nodo quitado es la que quedó en los túneles como `next-hop-ip` o `prev-hop-ip`. Si un túnel de cualquiera de los dos nodos todavía la tiene, se reemplaza sola por la IP correcta (ver *Corrección de IP* abajo). Los que no se pueden corregir solos se listan aparte.
+- **Enlace nuevo**: *IP nueva de A* o *IP de B*. Si se llena, la dirección del túnel se decide por coincidencia exacta de IPs en lugar de detectarla sola por la /30.
+
 ### Opciones extra
 
-- **IP que se quitó**: si un túnel de cualquiera de los dos nodos todavía tiene esa IP como `next-hop-ip` o `prev-hop-ip`, se reemplaza sola por la IP correcta (ver *Corrección de IP* abajo). Los que no se pueden corregir solos se listan aparte.
-- **IP del nodo a corregir / IP del vecino en el enlace**: si se llenan las dos, la dirección del túnel se decide por coincidencia exacta de IPs en lugar de detectarla sola.
 - **Otras etiquetas de entrada en uso**: pega aquí, por ejemplo, la salida de `conf search string in-label` para que la revisión de etiquetas ocupadas tome en cuenta servicios que no son tp-tunnel.
 
 ### Etiqueta manual
@@ -42,7 +47,7 @@ Sin IPs manuales, se considera que dos IPs están en el mismo enlace si caen en 
 
 ### 1b. Corrección de IP (hop que todavía apunta a la IP quitada)
 
-Solo se aplica si se llenó **IP que se quitó** y el túnel no pasó la regla 1.
+Solo se aplica si se llenó el **enlace que se quitó** en el diagrama y el túnel no pasó la regla 1.
 
 - Si un nodo tiene la IP quitada como `next-hop-ip`, su nuevo `next-hop-ip` es **el otro extremo de la /30** del `prev-hop-ip` del vecino (en una /30, `.1` ↔ `.2`).
 - Si la tiene como `prev-hop-ip`, su nuevo `prev-hop-ip` es el otro extremo de la /30 del `next-hop-ip` del vecino.

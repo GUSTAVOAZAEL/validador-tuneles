@@ -87,6 +87,35 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
 .manual label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:3px}
 .manual input{padding:6px 8px}
 .manual input.set{border-color:var(--wire);font-weight:600}
+.bp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.bp-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
+.bp-head h2{font-size:1.05rem;margin:0}
+.bp-head span{color:var(--muted);font-size:.88rem}
+.bp-grid{display:grid;grid-template-columns:minmax(110px,150px) 1fr minmax(130px,170px);grid-template-rows:auto auto;gap:14px 0;align-items:center}
+.bp-node{border:2px solid var(--ink);border-radius:8px;padding:10px 12px;min-height:76px;display:flex;flex-direction:column;justify-content:center;background:var(--field)}
+.bp-node b{font-size:.98rem} .bp-node small{color:var(--muted);font-size:.78rem}
+.bp-node .nm{font:600 13px "IBM Plex Mono",ui-monospace,monospace;color:var(--wire);margin-top:2px;word-break:break-all}
+.bp-node.a{grid-column:1;grid-row:1 / span 2;align-self:stretch}
+.bp-node.gone{grid-column:3;grid-row:1;border-style:dashed;border-color:var(--muted);color:var(--muted);opacity:.85}
+.bp-node.b{grid-column:3;grid-row:2}
+.bp-link{display:flex;align-items:flex-end;gap:8px;padding:0 8px}
+.bp-link.old{grid-column:2;grid-row:1} .bp-link.new{grid-column:2;grid-row:2}
+.bp-link .f{width:150px;flex:none}
+.bp-link label{font-size:.76rem;color:var(--muted);display:block;margin-bottom:3px;white-space:nowrap}
+.bp-link input{padding:6px 8px}
+.bp-link .ln{flex:1;min-width:30px;height:16px;position:relative;margin-bottom:9px}
+.bp-link .ln::before{content:"";position:absolute;left:-8px;right:-8px;top:7px;border-top:3px solid var(--wire)}
+.bp-link.old .ln::before{border-top:3px dashed var(--bad)}
+.bp-link .ln span{position:absolute;left:0;right:0;top:-13px;text-align:center;font-size:.74rem;color:var(--muted);white-space:nowrap}
+.bp-link.old .ln span{color:var(--bad)}
+@media (max-width:760px){
+  .bp-grid{grid-template-columns:1fr;gap:8px}
+  .bp-node.a,.bp-node.gone,.bp-node.b,.bp-link.old,.bp-link.new{grid-column:1;grid-row:auto;min-height:0}
+  .bp-link{flex-wrap:wrap;padding:0}
+  .bp-link .f{width:calc(50% - 4px)}
+  .bp-link .ln{order:-1;flex-basis:100%;margin:6px 0 4px}
+  .bp-link .ln::before{left:0;right:0}
+}
 .pill.man{background:var(--field);color:var(--wire);border:1px solid var(--wire)}
 </style>
 </head>
@@ -94,6 +123,25 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
 <div class="wrap">
   <h1>Validador de túneles TP después de un bypass</h1>
   <p class="lede">En cada nodo corre <code>conf search string tp-tunnel</code> y pega toda la salida. Se valida solo al pegar y arriba quedan los comandos listos para copiar por nodo.</p>
+
+  <section class="bp" aria-label="Bypass">
+    <div class="bp-head"><h2>Bypass</h2><span>Llena las IPs que conozcas. Con un extremo de cada enlace basta: el otro se calcula en la /30.</span></div>
+    <div class="bp-grid">
+      <div class="bp-node a"><b>Nodo A</b><small>a corregir</small><span class="nm" id="dA"></span></div>
+      <div class="bp-link old">
+        <div class="f"><label for="ipAold">IP de A (enlace viejo)</label><input id="ipAold" inputmode="decimal" placeholder="opcional"></div>
+        <div class="ln"><span>enlace que se quitó</span></div>
+        <div class="f"><label for="ipOld">IP del nodo quitado</label><input id="ipOld" inputmode="decimal" placeholder="la que quedó en los túneles"></div>
+      </div>
+      <div class="bp-node gone"><b>Nodo que se quitó</b><small>ya no está en el camino</small></div>
+      <div class="bp-link new">
+        <div class="f"><label for="ipA">IP nueva de A</label><input id="ipA" inputmode="decimal" placeholder="se detecta sola"></div>
+        <div class="ln"><span>enlace nuevo</span></div>
+        <div class="f"><label for="ipB">IP de B</label><input id="ipB" inputmode="decimal" placeholder="se detecta sola"></div>
+      </div>
+      <div class="bp-node b"><b>Nodo B</b><small>vecino</small><span class="nm" id="dB"></span></div>
+    </div>
+  </section>
 
   <div class="grid">
     <div class="node">
@@ -114,11 +162,6 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
 
   <details class="more">
     <summary>Opciones extra</summary>
-    <div class="opts">
-      <div><label for="ipOld">IP que se quitó</label><input id="ipOld" placeholder="192.0.2.5"></div>
-      <div><label for="ipA">IP del nodo a corregir en el enlace</label><input id="ipA" placeholder="se detecta sola"></div>
-      <div><label for="ipB">IP del vecino en el enlace</label><input id="ipB" placeholder="se detecta sola"></div>
-    </div>
     <label for="inv" style="margin-top:10px">Otras etiquetas de entrada en uso en el nodo a corregir (por ejemplo, salida de <code>conf search string in-label</code>)</label>
     <textarea id="inv" spellcheck="false" style="min-height:80px"></textarea>
   </details>
@@ -206,7 +249,16 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
     const tA = $("cfgA").value, tB = $("cfgB").value, out = $("out");
     const nA = nodeName(tA) || "Nodo A", nB = nodeName(tB) || "Nodo B";
     $("nameA").textContent = nodeName(tA) || ""; $("nameB").textContent = nodeName(tB) || "";
-    const ipA=$("ipA").value.trim(), ipB=$("ipB").value.trim(), ipOld=$("ipOld").value.trim(), invText=$("inv").value;
+    $("dA").textContent = nodeName(tA) || ""; $("dB").textContent = nodeName(tB) || "";
+    // IPs del diagrama: con un extremo de cada enlace se calcula el otro en la /30
+    const rA=$("ipA").value.trim(), rB=$("ipB").value.trim(), rOld=$("ipOld").value.trim(), rAold=$("ipAold").value.trim();
+    const ipA = rA || (rB ? partner(rB) || "" : ""), ipB = rB || (rA ? partner(rA) || "" : "");
+    const ipOld = rOld || (rAold ? partner(rAold) || "" : "");
+    $("ipA").placeholder = !rA && ipA ? ipA : "se detecta sola";
+    $("ipB").placeholder = !rB && ipB ? ipB : "se detecta sola";
+    $("ipOld").placeholder = !rOld && ipOld ? ipOld : "la que quedó en los túneles";
+    $("ipAold").placeholder = !rAold && rOld && partner(rOld) ? partner(rOld) : "opcional";
+    const invText=$("inv").value;
     const A = parse(tA), B = parse(tB);
     if (!A.size || !B.size){ out.innerHTML = (tA||tB) ? `<p class="empty">Falta pegar la salida del ${A.size?"nodo vecino":"nodo a corregir"}.</p>` : ""; return; }
 
@@ -227,7 +279,7 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
         if (r){ ({a, b, d, fixA, fixB} = r); ipFixCount++; fixedOld.add(name); }
       }
       if (!d){
-        warnCards.push(`<div class="tun warn"><h3>${esc(name)} <span class="pill warn">no pasa por el bypass</span></h3><p class="note">${esc(nA)}: next ${esc(a.p["next-hop-ip"]||"—")} / prev ${esc(a.p["prev-hop-ip"]||"—")} · ${esc(nB)}: next ${esc(b.p["next-hop-ip"]||"—")} / prev ${esc(b.p["prev-hop-ip"]||"—")}</p>${ipOld?"":`<p class="note">Si uno de los nodos todavía apunta a la IP vieja, escríbela en Opciones extra → IP que se quitó y se corrige sola.</p>`}</div>`);
+        warnCards.push(`<div class="tun warn"><h3>${esc(name)} <span class="pill warn">no pasa por el bypass</span></h3><p class="note">${esc(nA)}: next ${esc(a.p["next-hop-ip"]||"—")} / prev ${esc(a.p["prev-hop-ip"]||"—")} · ${esc(nB)}: next ${esc(b.p["next-hop-ip"]||"—")} / prev ${esc(b.p["prev-hop-ip"]||"—")}</p>${ipOld?"":`<p class="note">Si uno de los nodos todavía apunta a la IP vieja, escríbela arriba en el diagrama, en “IP del nodo quitado”, y se corrige sola.</p>`}</div>`);
         return;
       }
       const aUp = d==="AB", up = aUp?a:b, dn = aUp?b:a, upN = aUp?nA:nB, dnN = aUp?nB:nA;
@@ -316,9 +368,9 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
   function fallback(txt, done){ const t=document.createElement("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{document.execCommand("copy"); done();}catch(e){} t.remove(); }
 
   let timer; const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 150); };
-  ["cfgA","cfgB","inv","ipA","ipB","ipOld"].forEach(id => $(id).addEventListener("input", schedule));
+  ["cfgA","cfgB","inv","ipA","ipB","ipOld","ipAold"].forEach(id => $(id).addEventListener("input", schedule));
   $("swap").onclick = () => { const x=$("cfgA").value; $("cfgA").value=$("cfgB").value; $("cfgB").value=x; const y=$("ipA").value; $("ipA").value=$("ipB").value; $("ipB").value=y; for (const k in overrides) delete overrides[k]; run(); };
-  $("clear").onclick = () => { ["cfgA","cfgB","inv","ipA","ipB","ipOld"].forEach(id => $(id).value=""); for (const k in overrides) delete overrides[k]; run(); $("cfgA").focus(); };
+  $("clear").onclick = () => { ["cfgA","cfgB","inv","ipA","ipB","ipOld","ipAold"].forEach(id => $(id).value=""); for (const k in overrides) delete overrides[k]; run(); $("cfgA").focus(); };
   $("demo").onclick = () => {
     $("cfgA").value = "NODO-A> conf search string tp-tunnel\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-001 dest-ip 198.51.100.54 src-ip 198.51.100.3 next-hop-ip 192.0.2.1 prev-hop-ip 192.0.2.9 forward-out-label 10150 forward-in-label 10131 reverse-out-label 10132 reverse-in-label 10145 ais-monitor enable\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-002 dest-ip 198.51.100.10 src-ip 198.51.100.9 next-hop-ip 192.0.2.10 prev-hop-ip 192.0.2.5 forward-out-label 10200 forward-in-label 10102 reverse-out-label 10201 reverse-in-label 10202 ais-monitor enable\nNODO-A>";
     $("cfgB").value = "NODO-B> conf search string tp-tunnel\ngmpls tp-tunnel create static-transit-corout TP-EJEMPLO-001 dest-ip 198.51.100.54 src-ip 198.51.100.3 next-hop-ip 192.0.2.13 prev-hop-ip 192.0.2.2 forward-out-label 10408 forward-in-label 10103 reverse-out-label 10102 reverse-in-label 10407 ais-monitor enable\nNODO-B>";
