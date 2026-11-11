@@ -51,7 +51,7 @@ Solo se aplica si se llenó el **enlace que se quitó** en el diagrama y el tún
 
 - Si un nodo tiene la IP quitada como `next-hop-ip`, su nuevo `next-hop-ip` es **el otro extremo de la /30** del `prev-hop-ip` del vecino (en una /30, `.1` ↔ `.2`).
 - Si la tiene como `prev-hop-ip`, su nuevo `prev-hop-ip` es el otro extremo de la /30 del `next-hop-ip` del vecino.
-- Funciona sin importar en qué lado está el nodo con la IP vieja. El cambio se incluye en el mismo `delete` + `create`, y después se revisan las etiquetas normalmente.
+- Funciona sin importar en qué lado está el nodo con la IP vieja. El cambio se incluye en los mismos comandos que las etiquetas (ver *Corrección*), y después se revisan las etiquetas normalmente.
 
 Ejemplo: el nodo A tiene `prev-hop-ip 192.0.2.6` y el nodo B todavía tiene `next-hop-ip 192.0.2.81` (la IP quitada). El otro extremo de `.6` es `.5`, así que B queda con `next-hop-ip 192.0.2.5`.
 
