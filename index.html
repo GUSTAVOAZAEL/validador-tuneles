@@ -219,6 +219,18 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
   // IP del otro extremo en una /30 (.1 <-> .2)
   const partner = ip => { const n = ipNum(ip); if (n===null) return null; const o = n % 4; if (o!==1 && o!==2) return null; const m = o===1 ? n+1 : n-1; return [m>>>24, (m>>>16)&255, (m>>>8)&255, m&255].join("."); };
   const cloneT = t => ({...t, p:{...t.p}});
+  const paramsOf = line => { const p = {}; KEYS.forEach(k => { const m = line.match(new RegExp("(?:^|\\s)" + k + "\\s+(\\S+)")); if (m) p[k] = m[1]; }); return p; };
+  // Transit: delete + create con la línea completa.
+  // Ingress / egress: no aceptan delete + create; se deshabilitan, se cambia cada valor con set y se habilitan.
+  function applyCmds(t0, newLine){
+    const base = `gmpls tp-tunnel %s ${t0.type} ${t0.name}`;
+    if (/ingress|egress/.test(t0.type)){
+      const nu = paramsOf(newLine);
+      const sets = KEYS.filter(k => nu[k] !== undefined && nu[k] !== t0.p[k]).map(k => base.replace("%s","set") + ` ${k} ${nu[k]}`);
+      return [base.replace("%s","disable"), ...sets, base.replace("%s","enable")].join("\n");
+    }
+    return `${base.replace("%s","delete")}\n${newLine}`;
+  }
   // Si un nodo todavía tiene la IP quitada como next/prev hop, la reemplaza por la IP del otro extremo
   // del enlace, calculada a partir del hop del vecino que sí apunta al enlace nuevo.
   function repairHop(a0, b0, ipOld){
@@ -316,8 +328,8 @@ details.sec>summary{cursor:pointer;font-weight:600;margin-bottom:10px}
         if (v!==bCur){ oline=setLabel(oline,p.bKey,v); och.push(`${p.bKey} ${bCur} → ${v}`); }
       });
       const manual = !!(ov.fw || ov.rv); if (manual) manCount++;
-      if (ch.length) cmdA.push(`! ${name}: ${ch.join(", ")}\ngmpls tp-tunnel delete ${a.type} ${name}\n${line}`);
-      if (och.length) cmdB.push(`! ${name}: ${och.join(", ")}\ngmpls tp-tunnel delete ${b.type} ${name}\n${oline}`);
+      if (ch.length) cmdA.push(`! ${name}: ${ch.join(", ")}\n${applyCmds(a0, line)}`);
+      if (och.length) cmdB.push(`! ${name}: ${och.join(", ")}\n${applyCmds(b0, oline)}`);
 
       const inp = id => finals[id] ? `<div class="f"><label for="m-${id}-${esc(name)}">${id==="fw"?"Forward":"Reverse"} manual</label><input id="m-${id}-${esc(name)}" class="${ov[id]?"set":""}" inputmode="numeric" data-tun="${esc(name)}" data-pair="${id}" value="${esc(ov[id]||"")}" placeholder="${esc(finals[id].auto)}"></div>` : "";
       badCards.push(`<div class="tun bad"><h3>${esc(name)}${ipFixed?' <span class="pill warn">IP corregida</span>':""}${manual?' <span class="pill man">manual</span>':""}${notes.includes("ya la usa")&&!manual?' <span class="pill warn">etiqueta ocupada</span>':""}</h3>

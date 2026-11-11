@@ -69,11 +69,19 @@ Con *up* = nodo upstream y *down* = nodo downstream:
 - El **nodo a corregir adopta el valor del vecino** en el par que no coincide.
 - Si la etiqueta que le tocaría es una **in-label** que ya usa otro túnel (u otro servicio pegado en "Otras etiquetas") en el nodo a corregir, se propone el **siguiente número libre hacia arriba** y se aplica en **los dos nodos** para que sigan coincidiendo.
 - Las etiquetas que se van asignando en la misma corrida también cuentan como ocupadas, para no repetir un número entre túneles.
-- Los comandos generados son `delete` + `create` con la línea completa original y solo las etiquetas cambiadas:
-  ```
-  gmpls tp-tunnel delete <tipo> <túnel>
-  gmpls tp-tunnel create <tipo> <túnel> ... forward-in-label <nueva> ...
-  ```
+- Los comandos dependen del tipo de túnel:
+  - **Transit** (`static-transit-corout`): `delete` + `create` con la línea completa original y solo los valores cambiados.
+    ```
+    gmpls tp-tunnel delete <tipo> <túnel>
+    gmpls tp-tunnel create <tipo> <túnel> ... forward-in-label <nueva> ...
+    ```
+  - **Ingress / egress** (`static-ingress-corout`, `static-egress-corout`): no aceptan `delete` + `create`. Se deshabilitan, se cambia cada valor (IP de hop o etiqueta) con un `set` y se vuelven a habilitar.
+    ```
+    gmpls tp-tunnel disable <tipo> <túnel>
+    gmpls tp-tunnel set <tipo> <túnel> prev-hop-ip <nueva>
+    gmpls tp-tunnel set <tipo> <túnel> reverse-out-label <nueva>
+    gmpls tp-tunnel enable <tipo> <túnel>
+    ```
 
 ## Ejemplo
 
